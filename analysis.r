@@ -1,8 +1,10 @@
 # initialize dependencies
 library(FSinR)
-library(ggplot2)
+library(dplyr)
+library(tidyr)
 library(data.table)
 library(car)
+library(ggplot2)
 ggtheme <- theme(
   line=element_line(colour='#ad000e', size=0.8),
   plot.background=element_rect(fill='#ffffff'),
@@ -20,7 +22,7 @@ ggtheme <- theme(
   axis.title.y=element_text(margin=unit(c(0.6,0.6,0.6,0.6), 'cm')),
   axis.title.x=element_text(margin=unit(c(0.6,0.6,0.6,0.6), 'cm')),
   plot.margin=unit(c(0.5,0.5,0.5,0.5), 'cm'),
-  legend.text=element_text(family='DejaVu Math TeX Gyre'),
+  legend.text=element_text(family='DejaVu Math TeX Gyre', size=16),
   legend.title=element_blank()
 )
 
@@ -32,13 +34,24 @@ freqs <- melt(data, id.vars='subj.id', measure.vars=c('auto.freq', 'manual.freq'
 freqs <- freqs %>% left_join(data.frame(subj.id = data$subj.id, freq.sd = data$freq.sd), by = 'subj.id')
 freqs$freq.sd[freqs$freq.type == 'manual.freq'] = NA
 
+# summary statistics
+summary <- data %>% summarize(across(where(is.numeric), .fns = 
+                          list(min = min,
+                               median = median,
+                               mean = mean,
+                               stdev = sd,
+                               q25 = ~quantile(., 0.25),
+                               q75 = ~quantile(., 0.75),
+                               max = max))) %>%
+  pivot_longer(everything(), names_sep='_', names_to=c('variable', '.value'))
+
 # plot the distribution of hopping frequencies
 plot.preference <- ggplot(freqs, aes(x=subj.id, y=frequency, fill=freq.type)) +
   geom_col(position='dodge') +
   geom_errorbar(aes(ymin=frequency-freq.sd, ymax=frequency+freq.sd), width=0.2, position=position_dodge(.9)) +
   scale_y_continuous(limits=c(-0.05, 2)) +
   scale_x_continuous(breaks=c(1:8), labels=c(1:8)) +
-  scale_fill_discrete(labels=c("Average computed frequency", "Manual frequency count")) +
+  scale_fill_discrete(labels=c("Frequency I", "Frequency II")) +
   labs(x='Subject', y='Preferred hopping frequency') +
   ggtheme
 png('plots/preference.png', width=768, height=512)
